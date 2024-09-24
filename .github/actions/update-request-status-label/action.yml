@@ -10,10 +10,12 @@ inputs:
     description: "GITHUB_TOKEN or repo scoped PAT"
     required: true
   issue_number:
-    description: "Issue number"
+    description:
+      "The GitHub issue number that corresponds to the instance request."
     required: true
   instance_name:
-    description: "Instance name"
+    description:
+      "The name of the instance for which the status is being updated."
     required: true
   instance_status:
     description: |
@@ -24,7 +26,7 @@ runs:
   steps:
     - name: Retrieve instance status
       id: retrieve_instance_status
-      if: ${{ inputs.instance_status != '' }}
+      if: ${{ inputs.instance_status == '' }}
       shell: bash
       run: |
         source ~/venv/bin/activate
