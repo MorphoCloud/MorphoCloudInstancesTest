@@ -38,6 +38,15 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: Acquire lock
+        uses: actions/lock@v2
+        if: always()
+        with:
+          path:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            steps.collect_inputs.outputs.issue_number }}
+          timeout: 3600
+
       - name: Extract fields
         id: extract
         uses: ./.github/actions/extract-issue-fields
@@ -234,3 +243,12 @@ jobs:
             > Once the emails are correctly formatted and match, they will be automatically obfuscated for security.
 
             See details [here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+      - name: Release lock
+        uses: actions/lock@v2
+        if: always()
+        with:
+          path:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            steps.collect_inputs.outputs.issue_number }}
+          action: unlock

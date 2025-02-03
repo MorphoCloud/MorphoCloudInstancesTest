@@ -23,15 +23,28 @@ on:
           "Name of the command to execute: create, delete, shelve, unshelve"
         required: true
         type: string
+
 permissions:
+  # Permissions needed for reacting to IssueOps commands on issues
   issues: write
   checks: read
+  # Permissions needed for lock/unlock
+  contents: write
 
 jobs:
   control:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
+      - name: Acquire lock
+        uses: actions/lock@v2
+        if: always()
+        with:
+          path:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            inputs.issue_number }}
+          timeout: 3600
 
       - name: Control instance
         run: |
@@ -54,3 +67,12 @@ jobs:
           string_encryption_key: ${{ secrets.STRING_ENCRYPTION_KEY }}
           mail_server_username: ${{secrets.MAIL_USERNAME}}
           mail_server_password: ${{secrets.MAIL_PASSWORD}}
+
+      - name: Release lock
+        uses: actions/lock@v2
+        if: always()
+        with:
+          path:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            inputs.issue_number }}
+          action: unlock

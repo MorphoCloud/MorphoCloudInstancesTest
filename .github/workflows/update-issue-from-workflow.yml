@@ -33,6 +33,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Acquire lock
+        uses: actions/lock@v2
+        if: always()
+        with:
+          path:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            inputs.issue_number }}
+          timeout: 3600
+
       - name: Add comment
         run: |
           gh issue comment $ISSUE_NUMBER \
@@ -51,3 +60,12 @@ jobs:
           command_name: ${{ inputs.command_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           string_encryption_key: ${{ secrets.STRING_ENCRYPTION_KEY }}
+
+      - name: Release lock
+        uses: actions/lock@v2
+        if: always()
+        with:
+          path:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            inputs.issue_number }}
+          action: unlock
