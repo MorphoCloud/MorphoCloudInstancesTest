@@ -20,6 +20,14 @@ jobs:
       contains(github.event.comment.body, '/shelve') ||
       contains(github.event.comment.body, '/delete_instance') ) }}
     steps:
+      - name: Acquire lock
+        uses: github/lock@v2
+        if: always()
+        with:
+          environment:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            github.event.issue.number }}
+          mode: lock
 
       - name: unshelve command
         id: unshelve_command
@@ -90,15 +98,6 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Acquire lock
-        uses: actions/lock@v2
-        if: always()
-        with:
-          path:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          timeout: 3600
-
       - name: Control instance
         id: control_instance
         if: ${{ steps.command.outputs.continue == 'true' }}
@@ -114,10 +113,10 @@ jobs:
           mail_server_password: ${{secrets.MAIL_PASSWORD}}
 
       - name: Release lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             github.event.issue.number }}
-          action: unlock
+          mode: unlock

@@ -44,16 +44,14 @@ jobs:
             "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }},${{
             github.event.issue.user.login }}"
 
-      - uses: actions/checkout@v4
-
       - name: Acquire lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             github.event.issue.number }}
-          timeout: 3600
+          mode: lock
 
       - name: Set command metadata
         id: command
@@ -83,6 +81,8 @@ jobs:
           DECODE_EMAIL_COMMAND_CONTINUE:
             ${{ steps.decode_email_command.outputs.continue }}
 
+      - uses: actions/checkout@v4
+
       - name: Update issue description
         if: ${{ steps.command.outputs.continue == 'true' }}
         uses: ./.github/actions/update-issue-description
@@ -93,10 +93,10 @@ jobs:
           string_encryption_key: ${{ secrets.STRING_ENCRYPTION_KEY }}
 
       - name: Release lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             github.event.issue.number }}
-          action: unlock
+          mode: unlock

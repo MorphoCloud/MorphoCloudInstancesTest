@@ -11,10 +11,12 @@ on:
         description: "Issue number"
         required: true
 
-# Permissions needed for reacting to IssueOps commands on issues
 permissions:
+  # Permissions needed for reacting to IssueOps commands on issues
   issues: write
   checks: read
+  # Permissions needed for lock/unlock
+  contents: write
 
 jobs:
   validate:
@@ -36,16 +38,16 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
 
-      - uses: actions/checkout@v4
-
       - name: Acquire lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             steps.collect_inputs.outputs.issue_number }}
-          timeout: 3600
+          mode: lock
+
+      - uses: actions/checkout@v4
 
       - name: Extract fields
         id: extract
@@ -245,10 +247,10 @@ jobs:
             See details [here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
 
       - name: Release lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             steps.collect_inputs.outputs.issue_number }}
-          action: unlock
+          mode: unlock

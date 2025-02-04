@@ -6,6 +6,8 @@ on:
 
 permissions:
   # Permissions needed for lock/unlock
+  issues: write
+  checks: read
   contents: write
 
 jobs:
@@ -15,6 +17,14 @@ jobs:
       ${{ !github.event.issue.pull_request && (
       contains(github.event.comment.body, '/create') ) }}
     steps:
+      - name: Acquire lock
+        uses: github/lock@v2
+        if: always()
+        with:
+          environment:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            github.event.issue.number }}
+          mode: lock
 
       - name: create command
         id: create_command
@@ -27,15 +37,6 @@ jobs:
           allowlist: "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }}"
 
       - uses: actions/checkout@v4
-
-      - name: Acquire lock
-        uses: actions/lock@v2
-        if: always()
-        with:
-          path:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          timeout: 3600
 
       - name: Add "request:approved" label
         uses: actions/github-script@v7
@@ -700,10 +701,10 @@ jobs:
           send_email: ✅
 
       - name: Release lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             github.event.issue.number }}
-          action: unlock
+          mode: unlock

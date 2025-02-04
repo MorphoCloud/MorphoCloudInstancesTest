@@ -15,6 +15,14 @@ jobs:
       ${{ !github.event.issue.pull_request && (
       contains(github.event.comment.body, '/delete_all') ) }}
     steps:
+      - name: Acquire lock
+        uses: github/lock@v2
+        if: always()
+        with:
+          environment:
+            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
+            github.event.issue.number }}
+          mode: lock
 
       - name: delete_instance_and_volume command
         id: delete_instance_and_volume_command
@@ -27,15 +35,6 @@ jobs:
           allowlist: "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }}"
 
       - uses: actions/checkout@v4
-
-      - name: Acquire lock
-        uses: actions/lock@v2
-        if: always()
-        with:
-          path:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          timeout: 3600
 
       - name: Delete volume
         id: delete_volume
@@ -66,10 +65,10 @@ jobs:
           mail_server_password: ${{secrets.MAIL_PASSWORD}}
 
       - name: Release lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             github.event.issue.number }}
-          action: unlock
+          mode: unlock

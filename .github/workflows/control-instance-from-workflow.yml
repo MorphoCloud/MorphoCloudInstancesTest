@@ -35,16 +35,16 @@ jobs:
   control:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-
       - name: Acquire lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             inputs.issue_number }}
-          timeout: 3600
+          mode: lock
+
+      - uses: actions/checkout@v4
 
       - name: Control instance
         run: |
@@ -69,10 +69,10 @@ jobs:
           mail_server_password: ${{secrets.MAIL_PASSWORD}}
 
       - name: Release lock
-        uses: actions/lock@v2
+        uses: github/lock@v2
         if: always()
         with:
-          path:
+          environment:
             lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
             inputs.issue_number }}
-          action: unlock
+          mode: unlock
