@@ -31,15 +31,6 @@ jobs:
   control:
     runs-on: self-hosted
     steps:
-      - name: Acquire lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            inputs.issue_number }}
-          mode: lock
-
       - uses: actions/checkout@v4
 
       - name: Add comment
@@ -60,12 +51,3 @@ jobs:
           command_name: ${{ inputs.command_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           string_encryption_key: ${{ secrets.STRING_ENCRYPTION_KEY }}
-
-      - name: Release lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            inputs.issue_number }}
-          mode: unlock

@@ -4,12 +4,6 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  # Permissions needed for lock/unlock
-  issues: write
-  checks: read
-  contents: write
-
 jobs:
   create:
     runs-on: self-hosted
@@ -17,15 +11,6 @@ jobs:
       ${{ !github.event.issue.pull_request && (
       contains(github.event.comment.body, '/create') ) }}
     steps:
-      - name: Acquire lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          mode: lock
-
       - name: create command
         id: create_command
         uses: github/command@v1.2.0
@@ -699,12 +684,3 @@ jobs:
           setup_instance: ✅
           attach_volume: ✅
           send_email: ✅
-
-      - name: Release lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          mode: unlock

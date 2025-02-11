@@ -4,12 +4,10 @@ on:
   issue_comment:
     types: [created]
 
+# Permissions needed for reacting to IssueOps commands on issues
 permissions:
-  # Permissions needed for reacting to IssueOps commands on issues
   issues: write
   checks: read
-  # Permissions needed for lock/unlock
-  contents: write
 
 jobs:
   control:
@@ -20,15 +18,6 @@ jobs:
       contains(github.event.comment.body, '/shelve') ||
       contains(github.event.comment.body, '/delete_instance') ) }}
     steps:
-      - name: Acquire lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          mode: lock
-
       - name: unshelve command
         id: unshelve_command
         uses: github/command@v1.2.0
@@ -111,12 +100,3 @@ jobs:
           string_encryption_key: ${{ secrets.STRING_ENCRYPTION_KEY }}
           mail_server_username: ${{secrets.MAIL_USERNAME}}
           mail_server_password: ${{secrets.MAIL_PASSWORD}}
-
-      - name: Release lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          mode: unlock

@@ -11,12 +11,10 @@ on:
         description: "Issue number"
         required: true
 
+# Permissions needed for reacting to IssueOps commands on issues
 permissions:
-  # Permissions needed for reacting to IssueOps commands on issues
   issues: write
   checks: read
-  # Permissions needed for lock/unlock
-  contents: write
 
 jobs:
   validate:
@@ -37,15 +35,6 @@ jobs:
           echo "issue_number=$issue_number" >> $GITHUB_OUTPUT
         env:
           EVENT_NAME: ${{ github.event_name }}
-
-      - name: Acquire lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            steps.collect_inputs.outputs.issue_number }}
-          mode: lock
 
       - uses: actions/checkout@v4
 
@@ -245,12 +234,3 @@ jobs:
             > Once the emails are correctly formatted and match, they will be automatically obfuscated for security.
 
             See details [here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
-
-      - name: Release lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            steps.collect_inputs.outputs.issue_number }}
-          mode: unlock

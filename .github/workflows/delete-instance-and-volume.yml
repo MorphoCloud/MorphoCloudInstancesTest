@@ -4,10 +4,6 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  # Permissions needed for lock/unlock
-  contents: write
-
 jobs:
   delete_instance_and_volume:
     runs-on: self-hosted
@@ -15,15 +11,6 @@ jobs:
       ${{ !github.event.issue.pull_request && (
       contains(github.event.comment.body, '/delete_all') ) }}
     steps:
-      - name: Acquire lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          mode: lock
-
       - name: delete_instance_and_volume command
         id: delete_instance_and_volume_command
         uses: github/command@v1.2.0
@@ -63,12 +50,3 @@ jobs:
           string_encryption_key: ${{ secrets.STRING_ENCRYPTION_KEY }}
           mail_server_username: ${{secrets.MAIL_USERNAME}}
           mail_server_password: ${{secrets.MAIL_PASSWORD}}
-
-      - name: Release lock
-        uses: github/lock@v2
-        if: always()
-        with:
-          environment:
-            lock-${{ vars.MORPHOCLOUD_OS_CLOUD }}-instance-${{
-            github.event.issue.number }}
-          mode: unlock
