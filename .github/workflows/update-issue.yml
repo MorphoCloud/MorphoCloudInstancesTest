@@ -17,6 +17,12 @@ jobs:
       contains(github.event.comment.body, '/encode_email') ||
       contains(github.event.comment.body, '/decode_email') ) }}
     steps:
+      - uses: actions/create-github-app-token@0d564482f06ca65fa9e77e2510873638c82206f2 # v1.11.5
+        id: app-token
+        with:
+          app-id: ${{ vars.MORPHOCLOUD_WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.MORPHOCLOUD_WORKFLOW_APP_PRIVATE_KEY }}
+
       - name: encode_email command
         id: encode_email_command
         uses: jcfr/command@support-granting-permission-to-bot-user
@@ -25,6 +31,7 @@ jobs:
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "read,triage,write,maintain,admin"
+          github_token: ${{ steps.app-token.outputs.token }}
           allowlist:
             "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
             vars.MORPHOCLOUD_GITHUB_ADMINS }},${{ github.event.issue.user.login
@@ -38,6 +45,7 @@ jobs:
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "read,triage,write,maintain,admin"
+          github_token: ${{ steps.app-token.outputs.token }}
           allowlist:
             "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
             vars.MORPHOCLOUD_GITHUB_ADMINS }},${{ github.event.issue.user.login
@@ -79,5 +87,5 @@ jobs:
         with:
           issue_number: ${{ github.event.issue.number }}
           command_name: ${{ steps.command.outputs.command_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           string_encryption_key: ${{ secrets.STRING_ENCRYPTION_KEY }}
