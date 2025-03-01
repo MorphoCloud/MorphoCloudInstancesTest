@@ -19,27 +19,29 @@ jobs:
     steps:
       - name: encode_email command
         id: encode_email_command
-        uses: github/command@v2.0.0
+        uses: jcfr/command@support-granting-permission-to-bot-user
         with:
           command: "/encode_email"
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "read,triage,write,maintain,admin"
           allowlist:
-            "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }},${{
-            github.event.issue.user.login }}"
+            "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
+            vars.MORPHOCLOUD_GITHUB_ADMINS }},${{ github.event.issue.user.login
+            }}"
 
       - name: decode_email command
         id: decode_email_command
-        uses: github/command@v2.0.0
+        uses: jcfr/command@support-granting-permission-to-bot-user
         with:
           command: "/decode_email"
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "read,triage,write,maintain,admin"
           allowlist:
-            "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }},${{
-            github.event.issue.user.login }}"
+            "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
+            vars.MORPHOCLOUD_GITHUB_ADMINS }},${{ github.event.issue.user.login
+            }}"
 
       - name: Set command metadata
         id: command

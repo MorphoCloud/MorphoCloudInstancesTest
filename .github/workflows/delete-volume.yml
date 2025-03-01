@@ -13,13 +13,15 @@ jobs:
     steps:
       - name: delete_volume command
         id: delete_volume_command
-        uses: github/command@v2.0.0
+        uses: jcfr/command@support-granting-permission-to-bot-user
         with:
           command: "/delete_volume"
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "write,maintain,admin"
-          allowlist: "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }}"
+          allowlist:
+            "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
+            vars.MORPHOCLOUD_GITHUB_ADMINS }}"
 
       - uses: actions/checkout@v4
 

@@ -117,9 +117,7 @@ jobs:
               echo "instance_name [$instance_name], has_check_instance_shelve_script [$has_check_instance_shelve_script], uptime_hours [$uptime_hours] -> action[$action]"
               # Perform action
               if [[ "$action" == "shelve" ]]; then
-                gh workflow run control-instance-from-workflow.yml \
-                  -f issue_number=$issue_number \
-                  -f command_name=shelve
+                gh issue comment "$issue_number" --body "/shelve"
               fi
             done
         env:

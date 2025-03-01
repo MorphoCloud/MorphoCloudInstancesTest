@@ -169,12 +169,9 @@ jobs:
           steps.check_confirm_email_format.outputs.valid == 'true' &&
           steps.check_emails_match.outputs.valid == 'true' }}
         run: |
-          gh workflow run update-issue-from-workflow.yml \
-            -f issue_number=$ISSUE_NUMBER \
-            -f command_name=$COMMAND_NAME
+          gh issue comment "$ISSUE_NUMBER" --body "/encode_email"
         env:
           ISSUE_NUMBER: ${{ steps.collect_inputs.outputs.issue_number }}
-          COMMAND_NAME: encode_email
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: command results comment (failure)

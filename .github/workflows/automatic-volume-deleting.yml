@@ -137,16 +137,7 @@ jobs:
 
             if [[ "$days_until_expiration" -le 0 ]]; then
               echo "🚨 Volume ${volume_name} has expired. Deleting..."
-              gh workflow run delete-volume-from-workflow.yml \
-                -f issue_number=$issue_number
-                error_code=$?
-              set -e
-              if [[ $error_code -ne 0 ]]; then
-                echo "::warning ::Failed to run workflow for deleting $volume_name."
-                gh issue comment "$issue_number" \
-                  --body "❌ Failed to delete volume <tt>$volume_name</tt>. See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                continue
-              fi
+              gh issue comment "$issue_number" --body "/delete_volume"
               gh issue edit "$issue_number" --remove-label "volume:expiration-pending"
             else
               echo "ℹ️ Volume [$volume_name] still has [$days_until_expiration] days before deletion."
