@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/create-github-app-token@0d564482f06ca65fa9e77e2510873638c82206f2 # v1.11.5
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         id: app-token
         with:
           app-id: ${{ vars.MORPHOCLOUD_WORKFLOW_APP_ID }}
@@ -74,7 +74,18 @@ jobs:
 
               if [[ "$days_until_expiration" -le 0 ]]; then
                 echo "Instance ${instance_name} has expired. Deleting..."
-                gh issue comment "$issue_number" --body "/delete_instance"
+                set +e
+                gh workflow run control-instance-from-workflow.yml \
+                  -f issue_number=$issue_number \
+                  -f command_name=delete
+                  error_code=$?
+                set -e
+                if [[ $error_code -ne 0 ]]; then
+                  echo "::warning ::Failed to run workflow for deleting $instance_name."
+                  gh issue comment "$issue_number" \
+                    --body "❌ Failed to delete instance. See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  continue
+                fi
                 gh issue edit $issue_number --add-label "volume:expiration-pending"
 
               elif [[ "$days_until_expiration" -le $EXPIRATION_WARNING_DAYS ]]; then

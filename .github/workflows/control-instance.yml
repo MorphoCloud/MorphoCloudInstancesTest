@@ -20,41 +20,37 @@ jobs:
     steps:
       - name: unshelve command
         id: unshelve_command
-        uses: jcfr/command@support-granting-permission-to-bot-user
+        uses: github/command@v2.0.0
         with:
           command: "/unshelve"
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "read,triage,write,maintain,admin"
           allowlist:
-            "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
-            vars.MORPHOCLOUD_GITHUB_ADMINS }},${{ github.event.issue.user.login
-            }}"
+            "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }},${{
+            github.event.issue.user.login }}"
 
       - name: shelve command
         id: shelve_command
-        uses: jcfr/command@support-granting-permission-to-bot-user
+        uses: github/command@v2.0.0
         with:
           command: "/shelve"
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "read,triage,write,maintain,admin"
           allowlist:
-            "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
-            vars.MORPHOCLOUD_GITHUB_ADMINS }},${{ github.event.issue.user.login
-            }}"
+            "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }},${{
+            github.event.issue.user.login }}"
 
       - name: delete command
         id: delete_command
-        uses: jcfr/command@support-granting-permission-to-bot-user
+        uses: github/command@v2.0.0
         with:
           command: "/delete_instance"
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "write,maintain,admin"
-          allowlist:
-            "${{ vars.MORPHOCLOUD_WORKFLOW_APP_USERNAME }},${{
-            vars.MORPHOCLOUD_GITHUB_ADMINS }}"
+          allowlist: "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }}"
 
       - name: Set command metadata
         id: command
