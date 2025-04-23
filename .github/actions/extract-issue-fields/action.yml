@@ -48,9 +48,9 @@ runs:
     - name: Display parsed data
       shell: bash
       run: |
-        printf '%s\n' "$DATA" | jq .
+        printf '%s\n' "$DATA" | jq -r .
       env:
-        DATA: ${{ toJSON(steps.parse.outputs.data) }}
+        DATA: ${{ steps.parse.outputs.data }}
 
     - name: Extract fields
       id: extract
@@ -90,4 +90,4 @@ runs:
 
         echo "confirm_email=$confirm_email" >> $GITHUB_OUTPUT
       env:
-        DATA: ${{ toJSON(steps.parse.outputs.data) }}
+        DATA: ${{ steps.parse.outputs.data }}
