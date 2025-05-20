@@ -326,6 +326,15 @@ jobs:
                   echo "Exiting loop."
                   break
               else
+                  instance_status=$(openstack server show $INSTANCE_NAME -c status -f json | \
+                    jq -r '.status')
+                  echo "instance_status [$instance_status]"
+                  if [[ "$STATUS" == "ERROR" ]]; then
+                      echo "status=error" >> $GITHUB_OUTPUT
+                      echo "::error ::Failed to create instance '$INSTANCE_NAME'."
+                      exit 1
+                  fi
+
                   echo "Waiting for completion..."
                   sleep $wait_interval
                   total_wait_time=$((total_wait_time + wait_interval))
@@ -333,6 +342,7 @@ jobs:
           done
 
           if [ $total_wait_time -ge $max_wait_time ]; then
+              echo "status=polling-timeout" >> $GITHUB_OUTPUT
               echo "::error ::Maximum wait time ($max_wait_time seconds) exceeded."
               exit 1
           fi
@@ -350,7 +360,9 @@ jobs:
           INSTANCE_NAME: ${{ steps.define.outputs.instance_name }}
 
       - name: comment (maximum wait time exceeded)
-        if: ${{ steps.instance_poll.outcome == 'failure' && failure() }}
+        if:
+          ${{ steps.instance_poll.outputs.status == 'polling-timeout' &&
+          steps.instance_poll.outcome == 'failure' && failure() }}
         uses: peter-evans/create-or-update-comment@v4.0.0
         with:
           issue-number: ${{ github.event.issue.number }}
@@ -358,6 +370,20 @@ jobs:
             ### Instance Creation Results ❌
 
             Maximum wait time for instance **${{ steps.define.outputs.instance_name }}** setup to complete exceeded.
+
+            See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: comment (instance creation failed)
+        if:
+          ${{ steps.instance_poll.outputs.status == 'error' &&
+          steps.instance_poll.outcome == 'failure' && failure() }}
+        uses: peter-evans/create-or-update-comment@v4.0.0
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ### Instance Creation Results ❌
+
+            Failed to create instance **${{ steps.define.outputs.instance_name }}**.
 
             See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
