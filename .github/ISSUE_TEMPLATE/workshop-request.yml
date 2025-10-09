@@ -5,12 +5,10 @@ labels:
   - request-type:workshop
 
 body:
-  - type: input
+  - type: markdown
     attributes:
-      label: Title
-      description: Provide a descriptive title for the workshop.
-    validations:
-      required: true
+      value: |
+        _Please enter a short descriptive title for the workshop in the title bar above this text"_
 
   - type: dropdown
     attributes:
@@ -27,15 +25,6 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    attributes:
-      label: Description
-      description:
-        Describe the workshop content, target audience, and any specific tooling
-        that will be required for the instances.
-    validations:
-      required: true
-
   - type: input
     attributes:
       label: Duration (days)
@@ -49,6 +38,24 @@ body:
       label: Number of Instances
       description: Total number of instances needed for the workshop.
       placeholder: "15"
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Description
+      description:
+        Describe the workshop content, target audience, and your usage needs for
+        the instances. Approval of the request is contingent upon a valid use
+        case in the domain of 3D digital morphology.
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: ORCID
+      description: Enter your ORCID iD for identification purposes.
+      placeholder: 0000-0000-0000-0000
     validations:
       required: true
 

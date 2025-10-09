@@ -29,8 +29,17 @@ jobs:
       - uses: actions/checkout@v5
         if: ${{ steps.approve_command.outputs.continue == 'true' }}
 
-      - name: Extract workshop fields
+      - name: Extract common fields
         id: extract
+        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        uses: ./.github/actions/extract-workshop-fields
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          issue_number: ${{ github.event.issue.number }}
+
+      - name: Extract workshop fields
+        id: extract_workshop
         if: ${{ steps.approve_command.outputs.continue == 'true' }}
         uses: ./.github/actions/extract-workshop-fields
         with:
@@ -74,77 +83,97 @@ jobs:
           gh label create "$timeout_label" --color "5319E7" --description "Instance timeout after ${timeout_hours} hours" --force >/dev/null 2>&1 || true
 
           for idx in $(seq 1 "$NUMBER_OF_INSTANCES"); do
-            issue_title="Instance: ${WORKSHOP_TITLE} (Workshop #${ISSUE_NUMBER}) - Participant ${idx}"
+            issue_title="Instance: ${REQUEST_TITLE} (Workshop ${ISSUE_NUMBER}) - Participant ${idx}"
 
             issue_body=$(python - <<'PY'
-            import os, textwrap
+          import os, textwrap
 
-            body = textwrap.dedent(f"""### Cloud Computing Instance Flavor
+          body = textwrap.dedent(f"""### Cloud Computing Instance Flavor
 
-            {os.environ['INSTANCE_FLAVOR']}
+          {os.environ['INSTANCE_FLAVOR']}
 
-            ### Description
+          ### Description
 
-            Workshop instance created for "{os.environ['WORKSHOP_TITLE']}" (Workshop #{os.environ['ISSUE_NUMBER']}).
+          Workshop instance created for "{os.environ['REQUEST_TITLE']}" (Workshop {os.environ['ISSUE_NUMBER']}).
 
-            {os.environ['WORKSHOP_DESCRIPTION']}
+          {os.environ['REQUEST_DESCRIPTION']}
 
-            ### ORCID
+          ### ORCID
 
-            0000-0000-0000-0000
+          0000-0000-0000-0000
 
-            ### Email
+          ### Email
 
-            {os.environ['WORKSHOP_EMAIL']}
+          {os.environ['WORKSHOP_EMAIL']}
 
-            ### Confirm Email
+          ### Confirm Email
 
-            {os.environ['WORKSHOP_CONFIRM_EMAIL']}
-            """)
+          {os.environ['WORKSHOP_CONFIRM_EMAIL']}
+          """)
 
-            print(body)
-            PY
+          print(body)
+          PY
+          )
+
+            instance_issue_json=$(
+              gh api \
+                --method POST \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/$GH_REPO/issues" \
+                -f "title=$issue_title" \
+                -f "body=$issue_body" \
+                -f "labels[]=request-type:instance" \
+                -f "labels[]=request:approved" \
+                -f "labels[]=$timeout_label"
             )
 
-            issue_json=$(gh issue create \
-              --repo "$GH_REPO" \
-              --title "$issue_title" \
-              --body "$issue_body" \
-              --label "request-type:instance" \
-              --label "request:approved" \
-              --label "$timeout_label" \
-              --json number,id,url)
+            instance_issue_number=$(echo "$instance_issue_json" | jq -r '.number')
+            instance_issue_id=$(echo "$instance_issue_json" | jq -r '.id')
 
-            issue_number=$(echo "$issue_json" | jq -r '.number')
-            issue_id=$(echo "$issue_json" | jq -r '.id')
-            created_issues+=("$issue_number")
+            requested_instance_issues+=("$instance_issue_number")
 
-            gh api \
-              --method POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/repos/$GH_REPO/issues/$ISSUE_NUMBER/sub_issues" \
-              -f sub_issue_id="$issue_id" >/dev/null 2>&1 || true
+            # Get current total before adding
+            before_total="$(gh api "/repos/$GH_REPO/issues/$ISSUE_NUMBER" --jq '.sub_issues_summary.total // 0')"
 
-            gh issue comment "$issue_number" --body "/create"
+            # Add the sub-issue and capture the full updated issue JSON
+            issue_json="$(
+              gh api \
+                --method POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "/repos/$GH_REPO/issues/$ISSUE_NUMBER/sub_issues" \
+                -F sub_issue_id=$instance_issue_id
+            )"
+
+            # Read the new total from the response
+            after_total="$(jq -r '.sub_issues_summary.total // 0' <<<"$issue_json")"
+
+            echo "Sub-issues total: before=$before_total after=$after_total"
+
+            # Check it increased by exactly one
+            #if [[ "$after_total" -ne $((before_total + 1)) ]]; then
+            #  echo "::error ::Expected sub_issues_summary.total to increase by 1 (before=${before_total}, after=${after_total})"
+            #  exit 1
+            #fi
+
+            gh issue comment "$instance_issue_number" --body "/create"
           done
 
-          if [[ ${#created_issues[@]} -gt 0 ]]; then
-            comment_header="Created ${#created_issues[@]} workshop instance issues:"
-            comment_body="$comment_header"$'\n\n'
-            for issue_number in "${created_issues[@]}"; do
-              comment_body+="- [ ] #${issue_number}"$'\n'
-            done
-            gh issue comment "$ISSUE_NUMBER" --body "$comment_body"
+          if [[ ${#requested_instance_issues[@]} -gt 0 ]]; then
+            comment="Requested ${#requested_instance_issues[@]} workshop instances"
+            gh issue comment "$ISSUE_NUMBER" --body "$comment"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          WORKSHOP_TITLE: ${{ steps.extract.outputs.title }}
+          # Common fields
+          REQUEST_TITLE: ${{ steps.extract.outputs.title }}
+          REQUEST_DESCRIPTION: ${{ steps.extract.outputs.description }}
           INSTANCE_FLAVOR: ${{ steps.extract.outputs.instance_flavor }}
-          WORKSHOP_DESCRIPTION: ${{ steps.extract.outputs.description }}
-          NUMBER_OF_INSTANCES: ${{ steps.extract.outputs.number_of_instances }}
-          DURATION_DAYS: ${{ steps.extract.outputs.duration_days }}
           WORKSHOP_EMAIL: ${{ steps.extract.outputs.email }}
           WORKSHOP_CONFIRM_EMAIL: ${{ steps.extract.outputs.confirm_email }}
+          # Workshop specific fields
+          NUMBER_OF_INSTANCES:
+            ${{ steps.extract_workshop.outputs.number_of_instances }}
+          DURATION_DAYS: ${{ steps.extract_workshop.outputs.duration_days }}
