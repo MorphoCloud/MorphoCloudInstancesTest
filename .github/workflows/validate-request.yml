@@ -36,10 +36,28 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
 
+      - name: Ensure instance request
+        id: ensure_instance_request
+        run: |
+          labels=$(gh issue view "$ISSUE_NUMBER" --repo "$GH_REPO" --json labels | jq -r '.labels[].name')
+          echo "labels [$labels]"
+          if printf '%s\n' "$labels" | grep -Fxq 'request-type:instance'; then
+            echo "is_instance=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_instance=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping issue $ISSUE_NUMBER because it does not have label request-type:instance"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.collect_inputs.outputs.issue_number }}
+
       - uses: actions/checkout@v5
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
 
       - name: Extract fields
         id: extract
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         uses: ./.github/actions/extract-issue-fields
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -48,6 +66,7 @@ jobs:
 
       - name: Check ORCID iD format
         id: check_orcid_format
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         run: |
           if [[ "$ORCID" =~ ^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$ ]]; then
             valid="true"
@@ -63,6 +82,7 @@ jobs:
 
       - name: Check if email is encoded
         id: check_email_encryption
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         run: |
           if [[ "$EMAIL" != *"@"* ]]; then
             encoded="true"
@@ -75,6 +95,7 @@ jobs:
 
       - name: Decode email
         id: decode_email
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         uses: ./.github/actions/encode-decode-string
         with:
           input_string: ${{ steps.extract.outputs.email }}
@@ -84,6 +105,7 @@ jobs:
 
       - name: Check email format
         id: check_email_format
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         run: |
           # Adapted from https://gist.github.com/guessi/82a73ee7eb2b1216eb9db17bb8d65dd1
           email_regex="^(([A-Za-z0-9]+((\.|\-|\_|\+)?[A-Za-z0-9]?)*[A-Za-z0-9]+)|[A-Za-z0-9]+)@(([A-Za-z0-9]+)+((\.|\-|\_)?([A-Za-z0-9]+)+)*)+\.([A-Za-z]{2,})+$"
@@ -101,6 +123,7 @@ jobs:
 
       - name: Check if confirm email is encoded
         id: check_confirm_email_encryption
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         run: |
           if [[ "$CONFIRM_EMAIL" != *"@"* ]]; then
             encoded="true"
@@ -113,6 +136,7 @@ jobs:
 
       - name: Decode confirm email
         id: decode_confirm_email
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         uses: ./.github/actions/encode-decode-string
         with:
           input_string: ${{ steps.extract.outputs.confirm_email }}
@@ -124,6 +148,7 @@ jobs:
 
       - name: Check confirm email format
         id: check_confirm_email_format
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         run: |
           # Adapted from https://gist.github.com/guessi/82a73ee7eb2b1216eb9db17bb8d65dd1
           email_regex="^(([A-Za-z0-9]+((\.|\-|\_|\+)?[A-Za-z0-9]?)*[A-Za-z0-9]+)|[A-Za-z0-9]+)@(([A-Za-z0-9]+)+((\.|\-|\_)?([A-Za-z0-9]+)+)*)+\.([A-Za-z]{2,})+$"
@@ -141,6 +166,7 @@ jobs:
 
       - name: Check emails match
         id: check_emails_match
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         run: |
           if [[ "$EMAIL" == "$CONFIRM_EMAIL" ]]; then
             valid="true"
@@ -157,6 +183,7 @@ jobs:
 
       - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         id: app-token
+        if: ${{ steps.ensure_instance_request.outputs.is_instance == 'true' }}
         with:
           app-id: ${{ vars.MORPHOCLOUD_WORKFLOW_APP_ID }}
           private-key: ${{ secrets.MORPHOCLOUD_WORKFLOW_APP_PRIVATE_KEY }}
@@ -164,8 +191,9 @@ jobs:
       - name: Encode emails
         id: encode_emails
         if:
-          ${{ success() && steps.check_email_encryption.outputs.encoded ==
-          'false' && steps.check_email_format.outputs.valid == 'true' &&
+          ${{ steps.ensure_instance_request.outputs.is_instance == 'true' &&
+          steps.check_email_encryption.outputs.encoded == 'false' &&
+          steps.check_email_format.outputs.valid == 'true' &&
           steps.check_confirm_email_format.outputs.valid == 'true' &&
           steps.check_emails_match.outputs.valid == 'true' }}
         run: |
@@ -178,7 +206,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: command results comment (failure)
-        if: ${{ failure() }}
+        if:
+          ${{ steps.ensure_instance_request.outputs.is_instance == 'true' &&
+          failure() }}
         uses: peter-evans/create-or-update-comment@v5.0.0
         with:
           issue-number: ${{ steps.collect_inputs.outputs.issue_number }}
@@ -191,10 +221,11 @@ jobs:
 
       - name: command results comment (status)
         if:
-          ${{ success() && (steps.check_orcid_format.outputs.valid == 'true' &&
+          ${{ steps.ensure_instance_request.outputs.is_instance == 'true' &&
+          success() && steps.check_orcid_format.outputs.valid == 'true' &&
           steps.check_email_format.outputs.valid == 'true' &&
           steps.check_confirm_email_format.outputs.valid == 'true' &&
-          steps.check_emails_match.outputs.valid == 'true') }}
+          steps.check_emails_match.outputs.valid == 'true' }}
         uses: peter-evans/create-or-update-comment@v5.0.0
         with:
           issue-number: ${{ steps.collect_inputs.outputs.issue_number }}

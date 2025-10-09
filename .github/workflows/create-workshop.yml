@@ -1,0 +1,150 @@
+name: Create Workshop Instances
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    if:
+      ${{ !github.event.issue.pull_request &&
+      contains(github.event.issue.labels.*.name, 'request-type:workshop') &&
+      contains(github.event.comment.body, '/approve') }}
+    steps:
+      - name: approve command
+        id: approve_command
+        uses: github/command@v2.0.2
+        with:
+          command: "/approve"
+          reaction: "rocket"
+          allowed_contexts: "issue"
+          permissions: "write,maintain,admin"
+          allowlist: "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }}"
+
+      - uses: actions/checkout@v5
+        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+
+      - name: Extract workshop fields
+        id: extract
+        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        uses: ./.github/actions/extract-workshop-fields
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          issue_number: ${{ github.event.issue.number }}
+
+      - name: Update workshop labels
+        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" \
+            --add-label "request:approved,workflow:creating-instances"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+
+      - name: Create instance issues
+        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        run: |
+          set -euo pipefail
+
+          NUMBER_OF_INSTANCES=$(echo "$NUMBER_OF_INSTANCES" | tr -d '[:space:]')
+          DURATION_DAYS=$(echo "$DURATION_DAYS" | tr -d '[:space:]')
+
+          if ! [[ "$NUMBER_OF_INSTANCES" =~ ^[0-9]+$ ]]; then
+            echo "::error ::Invalid number of instances [$NUMBER_OF_INSTANCES]"
+            exit 1
+          fi
+
+          if ! [[ "$DURATION_DAYS" =~ ^[0-9]+$ ]]; then
+            echo "::error ::Invalid duration (days) [$DURATION_DAYS]"
+            exit 1
+          fi
+
+          timeout_hours=$((DURATION_DAYS * 24))
+          timeout_label="timeout:${timeout_hours}hrs"
+
+          declare -a created_issues=()
+
+          gh label create "$timeout_label" --color "5319E7" --description "Instance timeout after ${timeout_hours} hours" --force >/dev/null 2>&1 || true
+
+          for idx in $(seq 1 "$NUMBER_OF_INSTANCES"); do
+            issue_title="Instance: ${WORKSHOP_TITLE} (Workshop #${ISSUE_NUMBER}) - Participant ${idx}"
+
+            issue_body=$(python - <<'PY'
+            import os, textwrap
+
+            body = textwrap.dedent(f"""### Cloud Computing Instance Flavor
+
+            {os.environ['INSTANCE_FLAVOR']}
+
+            ### Description
+
+            Workshop instance created for "{os.environ['WORKSHOP_TITLE']}" (Workshop #{os.environ['ISSUE_NUMBER']}).
+
+            {os.environ['WORKSHOP_DESCRIPTION']}
+
+            ### ORCID
+
+            0000-0000-0000-0000
+
+            ### Email
+
+            {os.environ['WORKSHOP_EMAIL']}
+
+            ### Confirm Email
+
+            {os.environ['WORKSHOP_CONFIRM_EMAIL']}
+            """)
+
+            print(body)
+            PY
+            )
+
+            issue_json=$(gh issue create \
+              --repo "$GH_REPO" \
+              --title "$issue_title" \
+              --body "$issue_body" \
+              --label "request-type:instance" \
+              --label "request:approved" \
+              --label "$timeout_label" \
+              --json number,id,url)
+
+            issue_number=$(echo "$issue_json" | jq -r '.number')
+            issue_id=$(echo "$issue_json" | jq -r '.id')
+            created_issues+=("$issue_number")
+
+            gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/$GH_REPO/issues/$ISSUE_NUMBER/sub_issues" \
+              -f sub_issue_id="$issue_id" >/dev/null 2>&1 || true
+
+            gh issue comment "$issue_number" --body "/create"
+          done
+
+          if [[ ${#created_issues[@]} -gt 0 ]]; then
+            comment_header="Created ${#created_issues[@]} workshop instance issues:"
+            comment_body="$comment_header"$'\n\n'
+            for issue_number in "${created_issues[@]}"; do
+              comment_body+="- [ ] #${issue_number}"$'\n'
+            done
+            gh issue comment "$ISSUE_NUMBER" --body "$comment_body"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          WORKSHOP_TITLE: ${{ steps.extract.outputs.title }}
+          INSTANCE_FLAVOR: ${{ steps.extract.outputs.instance_flavor }}
+          WORKSHOP_DESCRIPTION: ${{ steps.extract.outputs.description }}
+          NUMBER_OF_INSTANCES: ${{ steps.extract.outputs.number_of_instances }}
+          DURATION_DAYS: ${{ steps.extract.outputs.duration_days }}
+          WORKSHOP_EMAIL: ${{ steps.extract.outputs.email }}
+          WORKSHOP_CONFIRM_EMAIL: ${{ steps.extract.outputs.confirm_email }}
