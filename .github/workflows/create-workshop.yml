@@ -32,7 +32,7 @@ jobs:
       - name: Extract common fields
         id: extract
         if: ${{ steps.approve_command.outputs.continue == 'true' }}
-        uses: ./.github/actions/extract-workshop-fields
+        uses: ./.github/actions/extract-issue-fields
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
@@ -57,6 +57,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
 
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        id: app-token
+        with:
+          app-id: ${{ vars.MORPHOCLOUD_WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.MORPHOCLOUD_WORKFLOW_APP_PRIVATE_KEY }}
+
       - name: Create instance issues
         if: ${{ steps.approve_command.outputs.continue == 'true' }}
         run: |
@@ -78,12 +84,12 @@ jobs:
           timeout_hours=$((DURATION_DAYS * 24))
           timeout_label="timeout:${timeout_hours}hrs"
 
-          declare -a created_issues=()
+          declare -a requested_instance_issues=()
 
           gh label create "$timeout_label" --color "5319E7" --description "Instance timeout after ${timeout_hours} hours" --force >/dev/null 2>&1 || true
 
           for idx in $(seq 1 "$NUMBER_OF_INSTANCES"); do
-            issue_title="Instance: ${REQUEST_TITLE} (Workshop ${ISSUE_NUMBER}) - Participant ${idx}"
+            issue_title="Instance: Workshop ${ISSUE_NUMBER} - Participant ${idx} (${REQUEST_TITLE})"
 
             issue_body=$(python - <<'PY'
           import os, textwrap
@@ -94,7 +100,7 @@ jobs:
 
           ### Description
 
-          Workshop instance created for "{os.environ['REQUEST_TITLE']}" (Workshop {os.environ['ISSUE_NUMBER']}).
+          Workshop instance created for Workshop {os.environ['ISSUE_NUMBER']} ({os.environ['REQUEST_TITLE']}).
 
           {os.environ['REQUEST_DESCRIPTION']}
 
@@ -156,7 +162,18 @@ jobs:
             #  exit 1
             #fi
 
-            gh issue comment "$instance_issue_number" --body "/create"
+            set +e
+            gh workflow run create-instance-from-workflow.yml \
+              -f issue_number=$instance_issue_number
+            error_code=$?
+            set -e
+            if [[ $error_code -ne 0 ]]; then
+              echo "::warning ::Failed to run workflow for creating instance $instance_issue_number"
+              gh issue comment "$instance_issue_number" \
+                --body "❌ Failed to create instance $instance_issue_number. See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              continue
+            fi
+
           done
 
           if [[ ${#requested_instance_issues[@]} -gt 0 ]]; then
@@ -164,7 +181,7 @@ jobs:
             gh issue comment "$ISSUE_NUMBER" --body "$comment"
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           # Common fields
