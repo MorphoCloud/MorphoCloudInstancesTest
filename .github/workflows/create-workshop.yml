@@ -14,24 +14,50 @@ jobs:
     if:
       ${{ !github.event.issue.pull_request &&
       contains(github.event.issue.labels.*.name, 'request-type:workshop') &&
-      contains(github.event.comment.body, '/approve') }}
+      contains(github.event.comment.body, '/create') }}
     steps:
-      - name: approve command
-        id: approve_command
+      - name: create command
+        id: create_command
         uses: github/command@v2.0.2
         with:
-          command: "/approve"
+          command: "/create"
           reaction: "rocket"
           allowed_contexts: "issue"
           permissions: "write,maintain,admin"
           allowlist: "${{ vars.MORPHOCLOUD_GITHUB_ADMINS }}"
 
       - uses: actions/checkout@v5
-        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        if: ${{ steps.create_command.outputs.continue == 'true' }}
+
+      - name: Check workflow management approval
+        id: check_approval
+        uses: ./.github/actions/check-approval
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ github.event.issue.number }}
+
+      - name: command results comment (Workflow management not approved)
+        if: ${{ ! fromJSON(steps.check_approval.outputs.is_approved) }}
+        uses: peter-evans/create-or-update-comment@v5.0.0
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ### Command Results ❌
+
+            `/create` command failed because management of **Workshop ${{ github.event.issue.number }}** has not been approved yet.
+
+      - name: Workflow management not approved (failure)
+        if: ${{ ! fromJSON(steps.check_approval.outputs.is_approved) }}
+        shell: bash
+        run: |
+          echo "::error ::Workflow $ISSUE_NUMBER management not approved"
+          exit 1
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
 
       - name: Extract common fields
         id: extract
-        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        if: ${{ steps.create_command.outputs.continue == 'true' }}
         uses: ./.github/actions/extract-issue-fields
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -40,7 +66,7 @@ jobs:
 
       - name: Extract workshop fields
         id: extract_workshop
-        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        if: ${{ steps.create_command.outputs.continue == 'true' }}
         uses: ./.github/actions/extract-workshop-fields
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -48,7 +74,7 @@ jobs:
           issue_number: ${{ github.event.issue.number }}
 
       - name: Update workshop labels
-        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        if: ${{ steps.create_command.outputs.continue == 'true' }}
         run: |
           gh issue edit "$ISSUE_NUMBER" \
             --add-label "request:approved,workflow:creating-instances"
@@ -64,7 +90,7 @@ jobs:
           private-key: ${{ secrets.MORPHOCLOUD_WORKFLOW_APP_PRIVATE_KEY }}
 
       - name: Create instance issues
-        if: ${{ steps.approve_command.outputs.continue == 'true' }}
+        if: ${{ steps.create_command.outputs.continue == 'true' }}
         run: |
           set -euo pipefail
 
