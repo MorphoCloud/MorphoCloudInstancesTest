@@ -14,17 +14,13 @@ on:
 
 jobs:
   initial_comments:
-    if:
-      ${{ contains(github.event.issue.labels.*.name, 'request-type:instance') }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect Inputs
         id: collect_inputs
         run: |
           echo "EVENT_NAME [$EVENT_NAME]"
-          if [[ "$EVENT_NAME" == "issues" ]]; then
-            issue_number=${{ github.event.issue.number }}
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" || "$EVENT_NAME" == "workflow_call" ]]; then
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$EVENT_NAME" == "workflow_call" ]]; then
             issue_number=${{ github.event.inputs.issue_number }}
           else
             echo "::error ::Unsupported EVENT_NAME [$EVENT_NAME]"
