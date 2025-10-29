@@ -13,11 +13,37 @@ on:
         description: "Issue number"
         required: true
         type: number
+
 permissions:
   issues: write
+  contents: read
   checks: read
 
 jobs:
+  call-validate-request:
+    uses: ./.github/workflows/validate-request.yml
+    with:
+      issue_number: ${{ inputs.issue_number }}
+    secrets: inherit
+
+  call-request-labeler:
+    uses: ./.github/workflows/request-labeler.yml
+    with:
+      issue_number: ${{ inputs.issue_number }}
+    secrets: inherit
+
+  call-request-initial-comments:
+    uses: ./.github/workflows/request-initial-comments.yml
+    with:
+      issue_number: ${{ inputs.issue_number }}
+    secrets: inherit
+
+  call-request-notify-admin:
+    uses: ./.github/workflows/request-notify-admin.yml
+    with:
+      issue_number: ${{ inputs.issue_number }}
+    secrets: inherit
+
   control:
     runs-on: self-hosted
     steps:
