@@ -1,9 +1,6 @@
 name: Validate Request
 
 on:
-  issues:
-    types:
-      - edited
   workflow_dispatch:
     inputs:
       issue_number:
