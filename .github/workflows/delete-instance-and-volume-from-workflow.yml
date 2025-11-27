@@ -26,7 +26,7 @@ jobs:
       - name: Add comment
         run: |
           gh issue comment $ISSUE_NUMBER \
-            -b "<tt>\delete_all</tt> issued by **delete-instance-and-volume-from-workflow.yml** workflow. \
+            -b "<tt>/delete_all</tt> issued by **delete-instance-and-volume-from-workflow.yml** workflow. \
             See details [here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
