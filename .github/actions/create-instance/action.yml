@@ -274,6 +274,70 @@ runs:
         INSTANCE_FLAVOR: ${{ steps.labels.outputs.instance_flavor }}
         FLOATING_IP_UUID: ${{ steps.ip_create.outputs.floating_ip_uuid }}
 
+    - name: Check for capacity error
+      if: ${{ steps.create_instance.outcome == 'success' }}
+      id: check_capacity_error
+      shell: bash
+      run: |
+        source ~/venv/bin/activate
+
+        # Get instance details
+        instance_json=$(openstack server show "$INSTANCE_NAME" -f json)
+        
+        status=$(echo "$instance_json" | jq -r '.status')
+        host=$(echo "$instance_json" | jq -r '.["OS-EXT-SRV-ATTR:host"]')
+        host_id=$(echo "$instance_json" | jq -r '.hostId')
+        addresses=$(echo "$instance_json" | jq -r '.addresses')
+        
+        echo "status: $status"
+        echo "host: $host"
+        echo "hostId: $host_id"
+        echo "addresses: $addresses"
+        
+        # Check if this is a capacity error
+        if [[ "$status" == "ERROR" && "$host" == "None" && "$host_id" == "" && "$addresses" == "" ]]; then
+          echo "capacity_error=true" >> $GITHUB_OUTPUT
+          echo "Detected capacity error - no instance available"
+        else
+          echo "capacity_error=false" >> $GITHUB_OUTPUT
+        fi
+      env:
+        OS_CLOUD: ${{ inputs.os_cloud }}
+        INSTANCE_NAME: ${{ steps.define.outputs.instance_name }}
+
+    - name: comment (no capacity available)
+      if: ${{ steps.check_capacity_error.outputs.capacity_error == 'true' }}
+      uses: peter-evans/create-or-update-comment@v5.0.0
+      with:
+        issue-number: ${{ inputs.issue_number }}
+        body: |
+          ### Instance Creation Results ❌
+
+          No instance of type **${{ steps.labels.outputs.instance_flavor }}** is available on JS2 at the moment.
+
+          See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    - name: Clean up failed instance (no capacity)
+      if: ${{ steps.check_capacity_error.outputs.capacity_error == 'true' }}
+      shell: bash
+      run: |
+        source ~/venv/bin/activate
+        
+        echo "Deleting failed instance due to capacity error"
+        openstack server delete "$INSTANCE_NAME" || echo "Failed to delete instance, it may not exist"
+      env:
+        OS_CLOUD: ${{ inputs.os_cloud }}
+        INSTANCE_NAME: ${{ steps.define.outputs.instance_name }}
+
+    - name: Exit on capacity error
+      if: ${{ steps.check_capacity_error.outputs.capacity_error == 'true' }}
+      shell: bash
+      run: |
+        echo "::error ::No capacity available for flavor $INSTANCE_FLAVOR"
+        exit 1
+      env:
+        INSTANCE_FLAVOR: ${{ steps.labels.outputs.instance_flavor }}
+
     - name: comment (instance creation failed)
       if: ${{ steps.create_instance.outcome == 'failure' && failure() }}
       uses: peter-evans/create-or-update-comment@v5.0.0
