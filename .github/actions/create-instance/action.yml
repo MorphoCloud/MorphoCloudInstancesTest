@@ -327,7 +327,9 @@ runs:
         echo "addresses: $addresses"
         
         # Check if this is a capacity error
-        if [[ "$status" == "ERROR" && "$host" == "None" && "$host_id" == "" && "$addresses" == "" ]]; then
+        # host can be null, "null", or "None" - all indicate no host assigned
+        # addresses can be {} or "" when empty
+        if [[ "$status" == "ERROR" && ( "$host" == "null" || "$host" == "None" || "$host" == "" ) && "$host_id" == "" && ( "$addresses" == "{}" || "$addresses" == "" ) ]]; then
           echo "capacity_error=true" >> $GITHUB_OUTPUT
           echo "Detected capacity error - no instance available"
         else

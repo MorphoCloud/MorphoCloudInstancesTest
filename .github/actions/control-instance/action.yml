@@ -355,7 +355,9 @@ runs:
                 echo "hostId: $host_id"
                 echo "addresses: $addresses"
                 
-                if [[ "$host" == "None" && "$host_id" == "" && "$addresses" == "" ]]; then
+                # host can be null, "null", or "None" - all indicate no host assigned
+                # addresses can be {} or "" when empty
+                if [[ ( "$host" == "null" || "$host" == "None" || "$host" == "" ) && "$host_id" == "" && ( "$addresses" == "{}" || "$addresses" == "" ) ]]; then
                     echo "Capacity error detected - no instance available"
                     capacity_error=true
                     break
