@@ -349,6 +349,8 @@ runs:
 
           No instance of type **${{ steps.labels.outputs.instance_flavor }}** is available on JS2 at the moment.
 
+          See currently available resources at https://grafana.jetstream-cloud.org/public-dashboards/b39f9f91452949389a4d333c3f451eac
+
           See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     - name: Clean up failed instance (no capacity)
