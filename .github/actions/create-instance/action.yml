@@ -261,7 +261,6 @@ runs:
           --property "exoFloatingIpReuseOption=$FLOATING_IP_UUID" \
           --property "exoSetup={\"status\":\"waiting\",\"epoch\":null}" \
           --user-data ./cloud-config \
-          --wait \
           --column created \
           --column flavor \
           --column image \
@@ -274,8 +273,41 @@ runs:
         INSTANCE_FLAVOR: ${{ steps.labels.outputs.instance_flavor }}
         FLOATING_IP_UUID: ${{ steps.ip_create.outputs.floating_ip_uuid }}
 
+    - name: Wait for instance to reach stable state
+      id: wait_instance_state
+      shell: bash
+      run: |
+        source ~/venv/bin/activate
+
+        echo "Waiting for instance to reach stable state..."
+        
+        max_wait_time=60  # Wait up to 60 seconds for status to stabilize
+        wait_interval=3
+        total_wait_time=0
+
+        while [ $total_wait_time -lt $max_wait_time ]; do
+            instance_json=$(openstack server show "$INSTANCE_NAME" -f json)
+            status=$(echo "$instance_json" | jq -r '.status')
+            
+            echo "Current status: $status (waited ${total_wait_time}s)"
+            
+            # Check if reached a stable state (ACTIVE or ERROR)
+            if [[ "$status" == "ACTIVE" || "$status" == "ERROR" ]]; then
+                echo "Instance reached stable state: $status"
+                break
+            fi
+            
+            sleep $wait_interval
+            total_wait_time=$((total_wait_time + wait_interval))
+        done
+        
+        echo "final_status=$status" >> $GITHUB_OUTPUT
+      env:
+        OS_CLOUD: ${{ inputs.os_cloud }}
+        INSTANCE_NAME: ${{ steps.define.outputs.instance_name }}
+
     - name: Check for capacity error
-      if: ${{ steps.create_instance.outcome == 'success' }}
+      if: ${{ steps.wait_instance_state.outputs.final_status == 'ERROR' }}
       id: check_capacity_error
       shell: bash
       run: |
@@ -338,8 +370,17 @@ runs:
       env:
         INSTANCE_FLAVOR: ${{ steps.labels.outputs.instance_flavor }}
 
+    - name: Ensure instance is ACTIVE before continuing
+      if: ${{ steps.check_capacity_error.outputs.capacity_error != 'true' && steps.wait_instance_state.outputs.final_status != 'ACTIVE' }}
+      shell: bash
+      run: |
+        echo "::error ::Instance failed to reach ACTIVE state. Current status: $CURRENT_STATUS"
+        exit 1
+      env:
+        CURRENT_STATUS: ${{ steps.wait_instance_state.outputs.final_status }}
+
     - name: comment (instance creation failed)
-      if: ${{ steps.create_instance.outcome == 'failure' && failure() }}
+      if: ${{ (steps.create_instance.outcome == 'failure' || steps.wait_instance_state.outcome == 'failure' || steps.check_capacity_error.outputs.capacity_error != 'true') && failure() && steps.check_capacity_error.outputs.capacity_error != 'true' }}
       uses: peter-evans/create-or-update-comment@v5.0.0
       with:
         issue-number: ${{ inputs.issue_number }}
@@ -351,6 +392,7 @@ runs:
           See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     - name: comment (progress)
+      if: ${{ steps.check_capacity_error.outputs.capacity_error != 'true' }}
       uses: ./.github/actions/comment-progress
       with:
         comment-id: ${{ steps.couc_progress.outputs.comment-id }}
@@ -363,6 +405,7 @@ runs:
         send_email: ""
 
     - name: Associate floating IP with created instance
+      if: ${{ steps.check_capacity_error.outputs.capacity_error != 'true' }}
       id: associated_ip
       shell: bash
       run: |
