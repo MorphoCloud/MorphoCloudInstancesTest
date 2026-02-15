@@ -119,8 +119,6 @@ jobs:
 
       - name: Send renewal email (renewal available)
         id: send_email_renewable
-        if: ${{ steps.check_renewal.outputs.renewal_available == 'true' }} (renewal available)
-        id: send_email_renewable
         if: ${{ steps.check_renewal.outputs.renewal_available == 'true' }}
         uses: dawidd6/action-send-mail@6d98ae34d733f9a723a9e04e94f2f24ba05e1402 # v6
         with:
