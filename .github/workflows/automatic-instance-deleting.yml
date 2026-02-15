@@ -154,12 +154,12 @@ jobs:
                 fi
 
               elif [[ "$days_until_expiration" -le $EXPIRATION_WARNING_DAYS ]]; then
-                # TEMPORARILY DISABLED FOR TESTING: Skip renewal emails for workshop instances (expiration <= 7 days)
+                # Skip renewal emails for workshop instances (expiration <= 7 days)
                 # Workshop instances are temporary and not meant to be renewed
                 # Use bc for floating-point comparison
-                # if (( $(echo "$expiration_days <= 7" | bc -l) )); then
-                #   echo "Skipping renewal email for workshop instance ${instance_name} (expires in ${expiration_days} days)"
-                # else
+                if (( $(echo "$expiration_days <= 7" | bc -l) )); then
+                  echo "Skipping renewal email for workshop instance ${instance_name} (expires in ${expiration_days} days)"
+                else
                   echo "Instance ${instance_name} will expire soon. Sending warning..."
                   gh issue comment "$issue_number" \
                     --body '⚠️ Instance and volume will be deleted in '"$days_until_expiration"' days. Request an extension using the `renew` command if needed.'
@@ -175,7 +175,7 @@ jobs:
                       --body "❌ Failed to send renewal email. See details at https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                     continue
                   fi
-                # fi
+                fi
               fi
             else
               echo "Skipping Instance $instance_name. Not associated with any 'expiration' labels. Created: [$created_at], Lifespan: [$lifespan_days days]"
