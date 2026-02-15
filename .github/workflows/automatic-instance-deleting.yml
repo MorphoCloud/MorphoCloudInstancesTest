@@ -67,7 +67,8 @@ jobs:
               # Compute expiration time
               expiration_days=$(echo "$lifespan_list" | sed -n "$((renewed_count + 1))p")
               expiration_days=${expiration_days:-0}
-              expiration_time_epoch=$((created_at_epoch + expiration_days * 86400))
+              # Use bc for floating-point arithmetic support
+              expiration_time_epoch=$(printf "%.0f" $(echo "$created_at_epoch + $expiration_days * 86400" | bc))
 
               # Calculate time remaining in seconds (not days) for accurate comparison
               seconds_until_expiration=$((expiration_time_epoch - current_time_epoch))
